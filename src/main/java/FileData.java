@@ -4,6 +4,7 @@ public class FileData {
     private String name;
     private String sender;
     private UUID id;
+    private long size;
 
     public String getName() {
         return name;
@@ -25,13 +26,18 @@ public class FileData {
         this.id = id;
     }
 
+    public long getSize() {
+        return size;
+    }
+
     public void setSender(String sender) {
         this.sender = sender;
     }
 
-    public FileData(UUID id, String name, String sender) {
+    public FileData(UUID id, String name, String sender, long size) {
         this.id = id;
         this.name = name;
         this.sender = sender;
+        this.size = size;
     }
 }

@@ -67,9 +67,6 @@ public class Client {
         res = sendToServer("Stop");
         if (res != 0)
             return res;
-        res = getServerAnswer();
-        if (res != 0)
-            return res;
         return closeConnectionWithServer();
     }
 
@@ -83,8 +80,17 @@ public class Client {
             return -1;
         }
 
-        System.out.println("send file: recv " + receiver + " file " + file.getAbsolutePath());
-        return 0;
+        int res = sendToServer(String.format("SendFile %s %s %s", file.getName(), receiver, String.valueOf(file.length())));
+        if (res != 0)
+            return res;
+        res = getServerAnswer();
+        if (res != 0)
+            return res;
+        res = sendBytesToServer(file);
+        if (res != 0)
+            return res;
+
+        return getServerAnswer();
     }
 
     public int updateFiles() {
@@ -97,8 +103,18 @@ public class Client {
         return getUpdatedListOfUsers();
     }
 
-    public int downloadFile(String dir, List<String> fileNames) {
-        System.out.println("Download file: dir " + dir + " filename " + fileNames.get(0));
+    public int downloadFile(String dir, int[] fileIndices) {
+        int res;
+        for (int i = 0; i < fileIndices.length; i++) {
+            FileData fileData = files.get(fileIndices[i]);
+            sendToServer(String.format("DownloadFile %s", fileData.getId().toString()));
+            res = getServerAnswer();
+            if (res != 0)
+                return res;
+            res = recvBytesFromServer(fileData, dir) + getServerAnswer();
+            if (res != 0)
+                return res;
+        }
         return 0;
     }
 
@@ -124,6 +140,56 @@ public class Client {
         } catch (IOException e) {
             e.printStackTrace();
             errorMessage = "Не удалось отправить данные на сервер";
+            return -1;
+        }
+        return 0;
+    }
+
+    private int sendBytesToServer(File file) {
+        byte[] bytes = new byte[(int)file.length()];
+        try {
+            FileInputStream fileInputStream = new FileInputStream(file);
+            fileInputStream.read(bytes);
+        } catch (IOException e) {
+            e.printStackTrace();
+            errorMessage = "Ошибка чтения файла";
+            return -1;
+        }
+        try {
+            outS.write(bytes);
+            outS.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+            errorMessage = "Ошибка отправки файла";
+            return -1;
+        }
+        return 0;
+    }
+
+    private int recvBytesFromServer(FileData fdata, String dirToSave) {
+        int size = (int)fdata.getSize();
+        byte[] bytes = new byte[size];
+
+        try {
+            int readSize = inS.read(bytes,0, size);
+            if (readSize != size) {
+                errorMessage = "Ошибка загрузки файла";
+                return -1;
+            }
+        } catch (IOException e) {
+            errorMessage = "Ошибка загрузки файла";
+            return -1;
+        }
+
+        File Nfile = new File(dirToSave + "\\" + fdata.getName());
+        FileOutputStream fos;
+        try {
+            fos = new FileOutputStream(Nfile,false);
+            fos.write(bytes);
+            fos.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+            errorMessage = "Ошибка при сохранении файла";
             return -1;
         }
         return 0;
@@ -158,8 +224,9 @@ public class Client {
     private int parseListOfFiles(String data) {
         String[] filesData = data.split(" ");
         List<FileData> newFileList = new ArrayList<>();
-        for (int i = 0; i < filesData.length-3; i++) {
-            FileData fdata = new FileData(UUID.fromString(filesData[i]), filesData[i+1], filesData[i+2]);
+        for (int i = 0; i < filesData.length-4; i += 4) {
+            FileData fdata = new FileData(UUID.fromString(filesData[i]),
+                    filesData[i+1], filesData[i+2], Long.parseLong(filesData[i+3]));
             newFileList.add(fdata);
         }
         files = newFileList;
@@ -168,8 +235,7 @@ public class Client {
 
     private int parseListOfUsers(String data) {
         String[] usersData = data.split(" ");
-        List<String> newUsersList = new ArrayList<>(Arrays.asList(usersData));
-        users = newUsersList;
+        users = new ArrayList<>(Arrays.asList(usersData));
         return 0;
     }
 

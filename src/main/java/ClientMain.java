@@ -54,10 +54,6 @@ public class ClientMain extends JFrame  {
         filenames.setText(text);
     }
 
-    public String getFilenames() {
-        return filenames.getText();
-    }
-
     public void setDownloadButtonListener(ActionListener l) {
         downloadButton.addActionListener(l);
     }
@@ -88,12 +84,7 @@ public class ClientMain extends JFrame  {
         userList.setModel(model);
     }
 
-    public List<String> getSelectedFiles() {
-        List<String> res = new ArrayList<>();
-        int[] selectedRows = table1.getSelectedRows();
-        for (int i = 0; i < selectedRows.length; i++) {
-            res.add(table1.getModel().getValueAt(selectedRows[i], 0).toString());
-        }
-        return res;
+    public int[] getSelectedFiles() {
+        return table1.getSelectedRows();
     }
 }
